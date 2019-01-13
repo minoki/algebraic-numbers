@@ -3,6 +3,8 @@ module Math.AlgebraicNumbers.Complex where
 import Math.AlgebraicNumbers.Prelude
 import Math.AlgebraicNumbers.Class
 
+-- Generic type for Complex numbers
+-- This type doesn't require 'RealFrac' constraint for 'Num' instance
 data Complex a = MkComplex !a !a
                deriving (Eq,Show,Functor)
 
@@ -38,4 +40,12 @@ instance (IntegralDomain a) => IntegralDomain (Complex a) where
   divide (MkComplex x y) (MkComplex x' y') = let d = x'^2 + y'^2
                                              in MkComplex ((x * x' + y * y') `divide` d) ((y * x' - x * y') `divide` d)
 
--- TODO: GCDDomain?
+instance (Eq a, Fractional a, IntegralDomain a) => GCDDomain (Complex a) where
+  gcdD = fieldGcd; lcmD = fieldLcm; contentV = fieldContentV
+
+{-
+instance (IsAlgebraic a) => IsAlgebraic (Complex a) where
+  definingPolynomial (MkComplex x y) = _
+  algebraicDegree (MkComplex x 0) = algebraicDegree x
+  algebraicDegree _ = _
+-}

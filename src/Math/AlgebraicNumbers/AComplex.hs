@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fdefer-type-errors #-}
 module Math.AlgebraicNumbers.AComplex where
 import Math.AlgebraicNumbers.Prelude
 import Math.AlgebraicNumbers.Class
@@ -15,8 +16,6 @@ import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.Vector as V
 import Data.List
 import Data.Ratio
-import GHC.Stack
-import Debug.Trace
 import qualified Prelude (div)
 
 complexIntToAComplex :: Complex Integer -> AComplex
@@ -127,7 +126,7 @@ isolatingRectToCComplex f r0@(MkComplex r i)
                 in MkComplex (cRealFromIntervals $ map realPart rectangles) (cRealFromIntervals $ map imagPart rectangles)
 
 -- the polynomial: primitive, irreducible, leading coefficient > 0
-mkAComplexWithIsolatingRectangle :: HasCallStack => UniPoly Integer -> Complex (Interval Rational) -> AComplex
+mkAComplexWithIsolatingRectangle :: UniPoly Integer -> Complex (Interval Rational) -> AComplex
 mkAComplexWithIsolatingRectangle f rect
   | degree' f == 1 = fromRational $ - ((coeff f) V.! 0) % ((coeff f) V.! 1) -- rational number
   | isCompatibleWithZero (imagPart rect)
@@ -333,12 +332,12 @@ rootsI f | f == 0 = error "rootsI: zero"
 rootsQ :: (IsRational a) => UniPoly a -> [(AComplex,Int)]
 rootsQ = rootsI . integralPrimitivePart
 
-rootsA :: UniPoly AReal -> [(AComplex,Int)]
+rootsA :: (Eq a, IsAlgebraicComplex a, GCDDomain a) => UniPoly a -> [(AComplex,Int)]
 rootsA f = [ (x,i)
            | (g,i) <- yun f
            , (x,_) <- rootsI (elimN g)
            , let rect = isolatingRectangle x
-           , countRootsInRectangleAN (mapCoeff FromReal g) rect True > 0
+           , countRootsInRectangleAN (mapCoeff toAComplex g) rect True > 0
            ]
 
 rootsAN :: UniPoly AComplex -> [(AComplex,Int)]
@@ -348,3 +347,22 @@ rootsAN f = [ (x,i)
             , let rect = isolatingRectangle x
             , countRootsInRectangleAN g rect True > 0
             ]
+
+class (IsAlgebraic a) => IsAlgebraicComplex a where
+  toAComplex :: a -> AComplex
+
+instance IsAlgebraicComplex Integer where
+  toAComplex = fromInteger
+
+instance (Integral a) => IsAlgebraicComplex (Ratio a) where
+  toAComplex = fromRational . toRational
+
+instance IsAlgebraicComplex AReal where
+  toAComplex = FromReal
+
+-- TODO: Implement an instance for IsAlgebraic (Complex a)
+-- instance (IsAlgebraicReal a) => IsAlgebraicComplex (Complex a) where
+--   toAComplex (MkComplex x y) = mkComplexA (toAReal x) (toAReal y)
+
+instance IsAlgebraicComplex AComplex where
+  toAComplex = id

@@ -157,6 +157,8 @@ leadingCoefficient (UniPoly xs)
   | otherwise = V.last xs
 
 -- | Convert a polynomial to monic, by dividing by the leading coefficient
+--
+-- Returns zero polynomial for zero.
 toMonic :: (Fractional a) => UniPoly a -> UniPoly a
 toMonic f@(UniPoly xs)
   | V.null xs = zeroP
@@ -175,6 +177,7 @@ unscaleP a f = mapCoeff (`divide` a) f
 valueAt :: (Num a) => a -> UniPoly a -> a
 valueAt t (UniPoly xs) = V.foldr' (\a b -> a + t * b) 0 xs
 
+-- TODO: Make it faster
 valueAtZQ :: Rational -> UniPoly Integer -> Rational
 valueAtZQ t (UniPoly xs) = V.foldr' (\a b -> fromInteger a + t * b) 0 xs
 

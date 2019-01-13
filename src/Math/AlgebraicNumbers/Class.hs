@@ -1,3 +1,6 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Math.AlgebraicNumbers.Class where
 import Math.AlgebraicNumbers.Prelude
 import Data.Ratio
@@ -41,6 +44,38 @@ class (GCDDomain a) => EuclideanDomain a where
   divD, modD :: a -> a -> a
   divD x y = fst (divModD x y)
   modD x y = snd (divModD x y)
+
+class (IntegralDomain a, Fractional a) => Field a where
+  characteristicP :: proxy a -> Integer
+
+data WhichPerfectField a where
+  CharZero :: (FieldWithCharZero a) => WhichPerfectField a
+  PositiveChar :: (PerfectFieldWithPositiveChar a) => WhichPerfectField a
+
+class (Field a) => PerfectField a where
+  whichPerfectField :: WhichPerfectField a
+
+class (PerfectField a) => FieldWithCharZero a
+class (Field a) => FieldWithPositiveChar a
+
+class (FieldWithPositiveChar a, PerfectField a) => PerfectFieldWithPositiveChar a where
+  pthRoot :: a -> a
+
+instance (Integral a) => Field (Ratio a) where
+  characteristicP _ = 0
+instance (Integral a) => PerfectField (Ratio a) where
+  whichPerfectField = CharZero
+instance (Integral a) => FieldWithCharZero (Ratio a)
+
+instance (KnownNat p) => Field (PrimeField p) where
+  characteristicP _ = char (undefined :: PrimeField p) -- uses ScopedTypeVariables
+instance (KnownNat p) => PerfectField (PrimeField p) where
+  whichPerfectField = PositiveChar
+instance (KnownNat p) => FieldWithPositiveChar (PrimeField p)
+instance (KnownNat p) => PerfectFieldWithPositiveChar (PrimeField p) where
+  pthRoot = Data.FiniteField.pthRoot
+
+
 
 -- | Extended Euclidean algorithm (EEA)
 --
@@ -104,6 +139,22 @@ instance (Integral a) => GCDDomain (Ratio a) where
 
 instance (KnownNat p) => GCDDomain (PrimeField p) where
   gcdD = fieldGcd; lcmD = fieldLcm; contentV = fieldContentV
+
+newtype WrappedField a = WrappedField { getField :: a }
+  deriving (Eq,Show,Ord,Num,Fractional,Real,Floating,RealFrac,RealFloat)
+
+instance (Fractional a) => IntegralDomain (WrappedField a) where
+  divide = (/)
+
+instance (Eq a, Fractional a) => GCDDomain (WrappedField a) where
+  gcdD = fieldGcd
+  lcmD = fieldLcm
+  contentV = fieldContentV
+
+instance (Eq a, Fractional a) => EuclideanDomain (WrappedField a) where
+  divModD x y = (x / y, 0)
+  divD = (/)
+  modD _ _ = 0
 
 contentVIntegral :: (GCDDomain a, Integral a) => V.Vector a -> a
 contentVIntegral xs

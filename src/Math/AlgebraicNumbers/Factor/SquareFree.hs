@@ -23,6 +23,8 @@ squareFreeFactorization f = mf (primitivePart f)
     sqPart f = primitivePart $ gcdD f (diffP f)
 
 -- Yun's algorithm
+--
+-- Input: primitive (?)
 yun :: (Eq a, GCDDomain a) => UniPoly a -> [(UniPoly a,Int)]
 yun 0 = [(0,1)]
 yun f = let f' = diffP f

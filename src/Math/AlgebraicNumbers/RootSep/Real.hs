@@ -24,6 +24,7 @@ signAt x p = sign (valueAt x p)
 signAtZQ :: Rational -> UniPoly Integer -> Int
 signAtZQ x p = sign (valueAtZQ x p)
 
+-- TODO: Better implementation
 isZeroAtZQ :: Rational -> UniPoly Integer -> Bool
 isZeroAtZQ x p = valueAtZQ x p == 0
 
@@ -46,7 +47,7 @@ signAtZQX NegativeInfinity p
   | p == 0 = 0
   | otherwise = sign (leadingCoefficient p) * (-1)^(degree' p)
 
--- | Negative polynomial remainder sequence
+-- | Negative polynomial remainder sequence using Euclidean PRS
 negativePRS_f :: (Eq a, Fractional a) => UniPoly a -> UniPoly a -> [UniPoly a]
 negativePRS_f f 0 = [f]
 negativePRS_f f g = let r = f `modP` g in f : negativePRS_f g (-r)

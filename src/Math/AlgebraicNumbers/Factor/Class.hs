@@ -12,29 +12,26 @@ import Data.Ratio
 import Data.FiniteField
 import GHC.TypeLits (KnownNat)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Random (RandomGen,getStdRandom)
+import Control.Monad.State (runState,state)
 
 class PolynomialFactorization a where
   -- Assume that the input is non-zero, primitive and square-free
-  factorizeSF :: UniPoly a -> [UniPoly a]
+  factorizeSFWithRandomGen :: (RandomGen g) => UniPoly a -> g -> ([UniPoly a], g)
   factorizeSFIO :: UniPoly a -> IO [UniPoly a]
-  factorizeSFIO = return . factorizeSF
+  factorizeSFIO = getStdRandom . factorizeSFWithRandomGen
 
 instance PolynomialFactorization Integer where
-  factorizeSF = unsafePerformIO . factorIntegerIO
-  factorizeSFIO = factorIntegerIO
+  factorizeSFWithRandomGen = factorInteger
 
 instance (Integral a, GCDDomain a, PolynomialFactorization a) => PolynomialFactorization (Ratio a) where
-  factorizeSF f = do
+  factorizeSFWithRandomGen f = runState $ do
     let commonDenominator = V.foldl' (\a b -> Prelude.lcm a (denominator b)) 1 (coeff f)
         pp = primitivePart $ mapCoeff (\x -> numerator x * (commonDenominator `Prelude.div` denominator x)) f
-    map (toMonic . mapCoeff fromIntegral) $ factorizeSF pp
-  factorizeSFIO f = do
-    let commonDenominator = V.foldl' (\a b -> Prelude.lcm a (denominator b)) 1 (coeff f)
-        pp = primitivePart $ mapCoeff (\x -> numerator x * (commonDenominator `Prelude.div` denominator x)) f
-    map (toMonic . mapCoeff fromIntegral) <$> factorizeSFIO pp
+    map (toMonic . mapCoeff fromIntegral) <$> state (factorizeSFWithRandomGen pp)
 
 instance PolynomialFactorization AReal where
-  factorizeSF f = do
+  factorizeSFWithRandomGen f = runState $ return $ do
     (a,i) <- rootsA f
     case a of
       FromReal a -> return (ind - constP a)
@@ -42,11 +39,10 @@ instance PolynomialFactorization AReal where
         | otherwise -> []
 
 instance PolynomialFactorization AComplex where
-  factorizeSF f = do
+  factorizeSFWithRandomGen f = runState $ return $ do
     (a,i) <- rootsAN f
     -- i must be 1
     return (ind - constP a)
 
 instance (KnownNat p) => PolynomialFactorization (PrimeField p) where
-  factorizeSF f = unsafePerformIO (factorCZIO f)
-  factorizeSFIO f = factorCZIO f
+  factorizeSFWithRandomGen = factorCZ

@@ -19,6 +19,8 @@ data AReal = FromRat !Rational
            | MkAReal !(UniPoly Integer) !Int !Rational !Rational
   deriving (Show)
 
+-- TODO: Implement better 'Show' instance
+
 instance IsAlgebraic AReal where
   definingPolynomial (FromRat x) = definingPolynomial x
   definingPolynomial (MkAReal p _ _ _) = p
@@ -70,7 +72,7 @@ mkARealWithCReal f cr = sieve squareFreeFactors (toIntervals cr)
 
     sieve :: [UniPoly Integer] -> [Interval Rational] -> AReal
     sieve [] _ = error "invalid real number"
-    sieve [g] xs = sieve2 (unsafePerformIO (factorIntegerIO g)) xs
+    sieve [g] xs = sieve2 (unsafePerformIO (factorIntegerIO g)) xs -- the order may be random, but it is fine because the result is reduced to one
     sieve gs (x:xs) = sieve (filter (\g -> isCompatibleWithZero (valueAtZ x g)) gs) xs
 
     sieve2 :: [UniPoly Integer] -> [Interval Rational] -> AReal
@@ -83,43 +85,6 @@ rootBound :: UniPoly Integer -> Rational
 rootBound f | f == 0 = error "rootBound: polynomial is zero"
             | otherwise = 1 + (V.maximum $ V.map (abs . (% lc)) $ V.init $ coeff f)
   where lc = leadingCoefficient f
-
-realRoots :: UniPoly Integer -> [AReal]
-realRoots f = map fst (realRootsM f)
-
-realRootsM :: UniPoly Integer -> [(AReal,Int)]
-realRootsM f = realRootsBetweenM f NegativeInfinity PositiveInfinity
-
--- | Returns the real roots of a polynomial in an interval
---
--- The polynomial cannot be zero.
-realRootsBetweenM :: UniPoly Integer -> ExtReal Rational -> ExtReal Rational -> [(AReal,Int)]
-realRootsBetweenM f lb ub
-  | f == 0 = error "realRoots: zero"
-  | degree' f == 0 = []
-  | otherwise = sortOn fst $ do
-      (g,i) <- yun (primitivePart f)
-      h <- unsafePerformIO (factorIntegerIO g)
-      let seq = negativePRS h (diffP h)
-          bound = rootBound h
-          lb' = clamp (-bound) bound lb
-          ub' = clamp (-bound) bound ub
-      a <- bisect h seq (lb',varianceAtZQX lb seq) (ub',varianceAtZQX ub seq)
-      return (a,i)
-  where
-    bisect :: UniPoly Integer -> [UniPoly Integer] -> (Rational,Int) -> (Rational,Int) -> [AReal]
-    bisect f seq p@(a,i) q@(b,j)
-      | i <= j     = []
-      | i == j + 1 = [mkARealWithIrreduciblePoly f a b]
-      | otherwise  = bisect f seq p r ++ bisect f seq r q
-      where c = (a + b) / 2
-            r = (c,varianceAtZQ c seq)
-
-realRootsBetween :: UniPoly Integer -> ExtReal Rational -> ExtReal Rational -> [AReal]
-realRootsBetween f lb ub = map fst (realRootsBetweenM f lb ub)
-
-realRootsBetweenQ :: (IsRational a) => UniPoly a -> ExtReal Rational -> ExtReal Rational -> [AReal]
-realRootsBetweenQ = realRootsBetween . integralPrimitivePart
 
 instance Eq AReal where
   -- Rational numbers
@@ -319,34 +284,69 @@ elimN f = case multToScalar (foldl' elimOne (toMultPoly f) (coeff f)) of
   where
     elimOne :: (IsAlgebraic a) => MultPoly (UniPoly Integer) -> a -> MultPoly (UniPoly Integer)
     elimOne m a = resultant (mapCoeff (Scalar . constP) $ definingPolynomial a) (multToUni m)
+-- Specialize for Integer/Rational?
 
 toMultPoly2 :: (Eq a, Num a) => UniPoly (UniPoly a) -> MultPoly (UniPoly (UniPoly Integer))
 toMultPoly2 0 = 0
 toMultPoly2 f = sum [multInd i * Scalar (ind^i) | i <- [0..degree' f]]
 
-realRootsA_naive :: UniPoly AReal -> [(AReal,Int)]
-realRootsA_naive f = [ (x,i)
-                     | (g,i) <- yun f
-                     , x <- realRoots (elimN g)
-                     , valueAt x g == 0
-                     ]
+realRoots :: UniPoly Integer -> [AReal]
+realRoots f = map fst (realRootsM f)
 
-realRootsA :: UniPoly AReal -> [(AReal,Int)]
+realRootsM :: UniPoly Integer -> [(AReal,Int)]
+realRootsM f = realRootsBetweenM f NegativeInfinity PositiveInfinity
+
+-- | Returns the real roots of a polynomial in an interval
+--
+-- The polynomial cannot be zero.
+realRootsBetweenM :: UniPoly Integer -> ExtReal Rational -> ExtReal Rational -> [(AReal,Int)]
+realRootsBetweenM f lb ub
+  | f == 0 = error "realRoots: zero"
+  | degree' f == 0 = []
+  | otherwise = sortOn fst $ do
+      (g,i) <- yun (primitivePart f)
+      h <- unsafePerformIO (factorIntegerIO g) -- the order of the factors is depends on the global state, but it is fine because it is sorted afterwards
+      let seq = negativePRS h (diffP h)
+          bound = rootBound h
+          lb' = clamp (-bound) bound lb
+          ub' = clamp (-bound) bound ub
+      a <- bisect h seq (lb',varianceAtZQX lb seq) (ub',varianceAtZQX ub seq)
+      return (a,i)
+  where
+    bisect :: UniPoly Integer -> [UniPoly Integer] -> (Rational,Int) -> (Rational,Int) -> [AReal]
+    bisect f seq p@(a,i) q@(b,j)
+      | i <= j     = []
+      | i == j + 1 = [mkARealWithIrreduciblePoly f a b]
+      | otherwise  = bisect f seq p r ++ bisect f seq r q
+      where c = (a + b) / 2
+            r = (c,varianceAtZQ c seq)
+
+realRootsBetween :: UniPoly Integer -> ExtReal Rational -> ExtReal Rational -> [AReal]
+realRootsBetween f lb ub = map fst (realRootsBetweenM f lb ub)
+
+realRootsBetweenQ :: (IsRational a) => UniPoly a -> ExtReal Rational -> ExtReal Rational -> [AReal]
+realRootsBetweenQ = realRootsBetween . integralPrimitivePart
+
+realRootsA :: (Ord a, IsAlgebraicReal a, GCDDomain a) => UniPoly a -> [(AReal,Int)]
 realRootsA f = [ (x,i)
                | (g,i) <- yun f
                , x <- realRoots (elimN g)
+               -- want to test valueAt x g == 0
                , let y' = toIntervals $ valueAtAsCReal x g
                , isCompatibleWithZero (y' !! 5)
                , let Iv x0 x1 = isolatingInterval x
-               , signAt (fromRational x0) g * signAt (fromRational x1) g <= 0
+               , let g' = mapCoeff toAReal g
+               , signAt (fromRational x0) g' * signAt (fromRational x1) g' <= 0
                ]
+-- Specialize for Integer / Rational coefficient polynomials?
 
-realRootsA' :: UniPoly AReal -> [(AReal,Int)]
+realRootsA' :: (Ord a, IsAlgebraicReal a, GCDDomain a) => UniPoly a -> [(AReal,Int)]
 realRootsA' f = [ (x,i)
                 | (g,i) <- yun f
                 , x <- realRoots (elimN g)
                 , let Iv x0 x1 = isolatingInterval x
-                , signAt (fromRational x0) g * signAt (fromRational x1) g <= 0
+                , let g' = mapCoeff toAReal g
+                , signAt (fromRational x0) g' * signAt (fromRational x1) g' <= 0
                 ]
 
 algRealToDouble :: AReal -> Double
@@ -356,3 +356,16 @@ algRealToDouble x = case (toIntervals x) !! 50 of
 algRealToDoubleI :: Interval AReal -> Double
 algRealToDoubleI (Iv x y) = case (toIntervals (x {-+ y-})) !! 50 of
   Iv a b -> fromRational (a + b) / 2
+
+-- Should add Ord as a superclass?
+class (IsAlgebraic a, IsCReal a) => IsAlgebraicReal a where
+  toAReal :: a -> AReal
+
+instance IsAlgebraicReal Integer where
+  toAReal = fromInteger
+
+instance (Integral a) => IsAlgebraicReal (Ratio a) where
+  toAReal = fromRational . toRational
+
+instance IsAlgebraicReal AReal where
+  toAReal = id

@@ -12,7 +12,7 @@ import GHC.TypeLits (KnownNat)
 import Data.Reflection (reifyNat)
 import Math.NumberTheory.Powers.Squares (integerSquareRoot)
 import Math.NumberTheory.Primes.Sieve (sieveFrom)
-import Control.Arrow (first,second)
+import Data.Bifunctor (first,second)
 
 -- 1-norm of coefficients
 oneNorm :: (Ord a, Num a) => UniPoly a -> a

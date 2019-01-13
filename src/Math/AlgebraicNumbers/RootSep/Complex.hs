@@ -40,8 +40,7 @@ negateIf :: Num a => Bool -> a -> a
 negateIf True = negate
 negateIf False = id
 
--- complexLinearFactor z is @ind - z@ with some scaling
--- @complexLinearFactor z@ は、 @ind - z@ の分母を払ったもの
+-- @complexLinearFactor z@ is @ind - z@ with some scaling
 complexLinearFactor :: Complex Rational -> UniPoly (Complex Integer)
 complexLinearFactor (MkComplex x y) = let m = Prelude.lcm (denominator x) (denominator y)
                                           x' = numerator (x * fromInteger m)

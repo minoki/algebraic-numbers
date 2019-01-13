@@ -43,4 +43,5 @@ instance (Eq a, GCDDomain a) => IntegralDomain (Fraction a) where
 
 instance (Eq a, GCDDomain a) => GCDDomain (Fraction a) where
   gcdD = fieldGcd
+  lcmD = fieldLcm
   contentV = fieldContentV
