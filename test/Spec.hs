@@ -49,11 +49,19 @@ testToDouble3 :: Test
 testToDouble3 = TestCase $ do
   let inf = 1.0 / 0.0 :: Double
   assertEqual "0x1.fffffffffffff7fp1023 -> 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDouble (0x1.fffffffffffff7fp1023 :: Rational)
-  assertEqual "0x1.fffffffffffff8p1023  -> inf" inf $ toDouble (0x1.fffffffffffff8p1023 :: Rational)
   assertEqual "0x1.fffffffffffff7fp1023 ->[+] inf" inf $ toDoubleTowardPositive (0x1.fffffffffffff7fp1023 :: Rational)
-  assertEqual "0x1.fffffffffffff8p1023  ->[+] inf" inf $ toDoubleTowardPositive (0x1.fffffffffffff8p1023 :: Rational)
   assertEqual "0x1.fffffffffffff7fp1023 ->[-] 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDoubleTowardNegative (0x1.fffffffffffff7fp1023 :: Rational)
+  assertEqual "0x1.fffffffffffff8p1023  -> inf" inf $ toDouble (0x1.fffffffffffff8p1023 :: Rational)
+  assertEqual "0x1.fffffffffffff8p1023  ->[+] inf" inf $ toDoubleTowardPositive (0x1.fffffffffffff8p1023 :: Rational)
   assertEqual "0x1.fffffffffffff8p1023  ->[-] 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDoubleTowardNegative (0x1.fffffffffffff7fp1023 :: Rational)
+  assertEqual "0x1p1024 -> inf" inf $ toDouble (0x1p1024 :: Rational)
+  assertEqual "0x1p1024 ->[+] inf" inf $ toDoubleTowardPositive (0x1p1024 :: Rational)
+  assertEqual "0x1p1024 ->[-] 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDoubleTowardNegative (0x1p1024 :: Rational)
+  assertEqual "0x1p1024 ->[0] 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDoubleTowardZero (0x1p1024 :: Rational)
+  assertEqual "0x1p1025 -> inf" inf $ toDouble (0x1p1025 :: Rational)
+  assertEqual "0x1p1025 ->[+] inf" inf $ toDoubleTowardPositive (0x1p1025 :: Rational)
+  assertEqual "0x1p1025 ->[-] 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDoubleTowardNegative (0x1p1025 :: Rational)
+  assertEqual "0x1p1025 ->[0] 0x1.fffffffffffffp1023" 0x1.fffffffffffffp1023 $ toDoubleTowardZero (0x1p1025 :: Rational)
 
 testToDouble4 = TestCase $ assertEqual "toDouble (sqrtA 2) == sqrt 2" (sqrt 2) (toDouble (sqrtA 2))
 

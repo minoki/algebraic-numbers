@@ -90,6 +90,8 @@ toDoubleWithRoundingMode r x = case compare x 0 of
                                        in toDoublePositive rm x
   where
     -- 53 == floatDigits (undefined :: Double)
+    -- (-1021,1024) == floatRange (undefined :: Double)
+
     -- <original x> = 2^i * x
     toDoublePositive !r x = case compare x (1/2) of
       LT -> {- 0 < x < 1/2 -} toDoublePositiveSmall r (-1) (2 * x)
@@ -106,10 +108,21 @@ toDoubleWithRoundingMode r x = case compare x 0 of
       EQ -> {- return 2^(i-1) -} encodeFloat 1 (i - 1)
       GT -> {- 1/2 < x < 1 -}    loop r (i - 53) 53 0 x
 
+    maxFiniteDouble :: Double
+    maxFiniteDouble = encodeFloat 0x1fffffffffffff (1023 - 52) -- max finite
+
+    nearInfinity :: AbsRoundingMode -> Double
+    nearInfinity AbsRoundNearest  = 1 / 0 -- infinity
+    nearInfinity AbsRoundUpward   = 1 / 0 -- infinity
+    nearInfinity AbsRoundDownward = maxFiniteDouble
+
     -- <original x> = 2^i * x, 1/2 < x
+    toDoublePositiveLarge !r 1025 x = nearInfinity r
     toDoublePositiveLarge !r !i x = case compare x 1 of
       LT -> {- 1/2 < x < 1 -} loop r (i - 53) 53 0 x
-      EQ -> {- return 2^i -}  encodeFloat 1 i
+      EQ -> {- return 2^i -}  if i == 1024
+                              then nearInfinity r
+                              else encodeFloat 1 i
       GT -> {- 1 < x -}       toDoublePositiveLarge r (i + 1) (x / 2)
 
     -- loop _ i j acc x: <original x> = 2^(i+j) * (acc + x), 0 <= x <= 1
