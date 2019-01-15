@@ -68,7 +68,7 @@ mkARealWithCReal :: UniPoly Integer -> CReal -> AReal
 mkARealWithCReal f cr = sieve squareFreeFactors (toIntervals cr)
   where
     squareFreeFactors :: [UniPoly Integer]
-    squareFreeFactors = map fst $ yun $ primitivePart f
+    squareFreeFactors = map fst $ yunSFF $ primitivePart f
 
     sieve :: [UniPoly Integer] -> [Interval Rational] -> AReal
     sieve [] _ = error "invalid real number"
@@ -304,7 +304,7 @@ realRootsBetweenM f lb ub
   | f == 0 = error "realRoots: zero"
   | degree' f == 0 = []
   | otherwise = sortOn fst $ do
-      (g,i) <- yun (primitivePart f)
+      (g,i) <- yunSFF (primitivePart f)
       h <- unsafePerformIO (factorIntegerIO g) -- the order of the factors is depends on the global state, but it is fine because it is sorted afterwards
       let seq = negativePRS h (diffP h)
           bound = rootBound h
@@ -329,7 +329,7 @@ realRootsBetweenQ = realRootsBetween . integralPrimitivePart
 
 realRootsA :: (Ord a, IsAlgebraicReal a, GCDDomain a) => UniPoly a -> [(AReal,Int)]
 realRootsA f = [ (x,i)
-               | (g,i) <- yun f
+               | (g,i) <- yunSFF f
                , x <- realRoots (elimN g)
                -- want to test valueAt x g == 0
                , let y' = toIntervals $ valueAtAsCReal x g
@@ -342,7 +342,7 @@ realRootsA f = [ (x,i)
 
 realRootsA' :: (Ord a, IsAlgebraicReal a, GCDDomain a) => UniPoly a -> [(AReal,Int)]
 realRootsA' f = [ (x,i)
-                | (g,i) <- yun f
+                | (g,i) <- yunSFF f
                 , x <- realRoots (elimN g)
                 , let Iv x0 x1 = isolatingInterval x
                 , let g' = mapCoeff toAReal g

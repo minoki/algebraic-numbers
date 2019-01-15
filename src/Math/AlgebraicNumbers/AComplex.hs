@@ -140,7 +140,7 @@ mkAComplexWithCComplex :: UniPoly Integer -> Complex CReal -> AComplex
 mkAComplexWithCComplex f x = sieve squareFreeFactors (zipWith MkComplex (toIntervals $ realPart x) (toIntervals $ imagPart x))
   where
     squareFreeFactors :: [UniPoly Integer]
-    squareFreeFactors = map fst $ yun $ primitivePart f
+    squareFreeFactors = map fst $ yunSFF $ primitivePart f
 
     sieve :: [UniPoly Integer] -> [Complex (Interval Rational)] -> AComplex
     sieve [] _ = error "invalid complex number"
@@ -321,7 +321,7 @@ rootsOfIrreduciblePolyInRectangle f rect expectedNumOfRoots = bisectReal rect ex
 rootsI :: UniPoly Integer -> [(AComplex,Int)]
 rootsI f | f == 0 = error "rootsI: zero"
          | otherwise = [ (x,i)
-                       | (g,i) <- yun (primitivePart f)
+                       | (g,i) <- yunSFF (primitivePart f)
                        , h <- sortPolynomials $ unsafePerformIO (factorIntegerIO g)
                        , let bound = rootBound h
                        , x <- rootsOfIrreduciblePolyInRectangle h (MkComplex (Iv (-bound) bound) (Iv (-bound) bound)) (degree' h)
@@ -334,19 +334,21 @@ rootsQ = rootsI . integralPrimitivePart
 
 rootsA :: (Eq a, IsAlgebraicComplex a, GCDDomain a) => UniPoly a -> [(AComplex,Int)]
 rootsA f = [ (x,i)
-           | (g,i) <- yun f
+           | (g,i) <- yunSFF f
            , (x,_) <- rootsI (elimN g)
            , let rect = isolatingRectangle x
            , countRootsInRectangleAN (mapCoeff toAComplex g) rect True > 0
            ]
 
+{-
 rootsAN :: UniPoly AComplex -> [(AComplex,Int)]
 rootsAN f = [ (x,i)
-            | (g,i) <- yun f
+            | (g,i) <- yunSFF f
             , (x,_) <- rootsI (elimN g)
             , let rect = isolatingRectangle x
             , countRootsInRectangleAN g rect True > 0
             ]
+-}
 
 class (IsAlgebraic a) => IsAlgebraicComplex a where
   toAComplex :: a -> AComplex

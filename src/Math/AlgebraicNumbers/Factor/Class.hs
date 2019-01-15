@@ -12,7 +12,7 @@ import Data.Ratio
 import Data.FiniteField
 import GHC.TypeLits (KnownNat)
 import System.IO.Unsafe (unsafePerformIO)
-import System.Random (RandomGen,getStdRandom)
+import System.Random (RandomGen,getStdRandom,mkStdGen)
 import Control.Monad.State (runState,state)
 
 class PolynomialFactorization a where
@@ -40,9 +40,12 @@ instance PolynomialFactorization AReal where
 
 instance PolynomialFactorization AComplex where
   factorizeSFWithRandomGen f = runState $ return $ do
-    (a,i) <- rootsAN f
+    (a,i) <- rootsA f
     -- i must be 1
     return (ind - constP a)
 
 instance (KnownNat p) => PolynomialFactorization (PrimeField p) where
   factorizeSFWithRandomGen = factorCZ
+
+factorizeSFPure :: (PolynomialFactorization a) => UniPoly a -> [UniPoly a]
+factorizeSFPure f = fst (factorizeSFWithRandomGen f (mkStdGen 0xc0ffee))
