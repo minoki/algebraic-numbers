@@ -56,14 +56,6 @@ instance IsCReal CReal where
 valueAtAsCReal :: (IsCReal a, IsCReal b) => a -> UniPoly b -> CReal
 valueAtAsCReal t = valueAtT toCReal (toCReal t)
 
-{-
-toDouble :: (Ord a, Fractional a) => a -> Double
-toDouble x | x == 0 = 0
-           | x > 0 = toDoublePositive x
-           | x < 0 = - toDoublePositive (-x)
-  where toDoublePositive x | x > 1 = 2 * toDoublePositive (x / 2)
--}
-
 maxCReal :: CReal -> CReal -> CReal
 maxCReal (CReal xs) (CReal ys) = CReal (zipWith maxInterval xs ys)
 
@@ -84,27 +76,43 @@ data AbsRoundingMode = AbsRoundNearest
 toDoubleWithRoundingMode :: (Ord a, IsCReal a, Fractional a) => RoundingMode -> a -> Double
 toDoubleWithRoundingMode r x = case compare x 0 of
                                  LT -> let rm = case r of
-                                             RoundTowardNearest -> AbsRoundNearest
+                                             RoundTowardNearest  -> AbsRoundNearest
                                              RoundTowardPositive -> AbsRoundDownward
                                              RoundTowardNegative -> AbsRoundUpward
-                                             RoundTowardZero -> AbsRoundDownward
-                                       in - toDoublePositive rm 0 (-x)
+                                             RoundTowardZero     -> AbsRoundDownward
+                                       in - toDoublePositive rm (-x)
                                  EQ -> 0
                                  GT -> let rm = case r of
-                                             RoundTowardNearest -> AbsRoundNearest
+                                             RoundTowardNearest  -> AbsRoundNearest
                                              RoundTowardPositive -> AbsRoundUpward
                                              RoundTowardNegative -> AbsRoundDownward
-                                             RoundTowardZero -> AbsRoundDownward
-                                       in toDoublePositive rm 0 x
+                                             RoundTowardZero     -> AbsRoundDownward
+                                       in toDoublePositive rm x
   where
+    -- 53 == floatDigits (undefined :: Double)
     -- <original x> = 2^i * x
-    toDoublePositive !rm !i x = case compare x (1/2) of
-                                  LT -> toDoublePositive rm (i - 1) (2 * x)
-                                  EQ -> encodeFloat 1 (i - 1)
-                                  GT -> case compare x 1 of
-                                          LT -> loop rm (i - 53) 53 0 x -- 53 == floatDigits (undefined :: Double)
-                                          EQ -> encodeFloat 1 i
-                                          GT -> toDoublePositive rm (i + 1) (x / 2)
+    toDoublePositive !r x = case compare x (1/2) of
+      LT -> {- 0 < x < 1/2 -} toDoublePositiveSmall r (-1) (2 * x)
+      EQ -> 1/2
+      GT -> case compare x 1 of
+              LT -> {- 1/2 < x < 1 -} loop r (-53) 53 0 x
+              EQ -> 1
+              GT -> {- 1 < x -} toDoublePositiveLarge r 1 (x / 2)
+
+    -- <original x> = 2^i * x, 0 < x <= 1
+    toDoublePositiveSmall !r (-1022) x = {- subnormal, 0 < x <= 1 -} loop r (-1022 - 52) 52 0 x
+    toDoublePositiveSmall !r !i x = case compare x (1/2) of
+      LT -> {- 0 < x < 1/2 -}    toDoublePositiveSmall r (i - 1) (2 * x)
+      EQ -> {- return 2^(i-1) -} encodeFloat 1 (i - 1)
+      GT -> {- 1/2 < x < 1 -}    loop r (i - 53) 53 0 x
+
+    -- <original x> = 2^i * x, 1/2 < x
+    toDoublePositiveLarge !r !i x = case compare x 1 of
+      LT -> {- 1/2 < x < 1 -} loop r (i - 53) 53 0 x
+      EQ -> {- return 2^i -}  encodeFloat 1 i
+      GT -> {- 1 < x -}       toDoublePositiveLarge r (i + 1) (x / 2)
+
+    -- loop _ i j acc x: <original x> = 2^(i+j) * (acc + x), 0 <= x <= 1
     loop AbsRoundNearest !i 0 !acc x = case compare x (1/2) of
                                          LT -> encodeFloat acc i
                                          EQ -> if even acc
@@ -117,8 +125,8 @@ toDoubleWithRoundingMode r x = case compare x 0 of
     loop AbsRoundDownward !i 0 !acc x = if x == 1
                                         then encodeFloat (acc + 1) i
                                         else encodeFloat acc i
-    loop !rm !i !j !acc x | x <= 1/2 = loop rm i (j - 1) (acc * 2) (x * 2)
-                          | otherwise = loop rm i (j - 1) (acc * 2 + 1) (x * 2 - 1)
+    loop !r !i !j !acc x | x <= 1/2  = loop r i (j - 1) (acc * 2)     (x * 2)
+                         | otherwise = loop r i (j - 1) (acc * 2 + 1) (x * 2 - 1)
 
 toDouble, toDoubleTowardPositive, toDoubleTowardNegative, toDoubleTowardZero :: (Ord a, IsCReal a, Fractional a) => a -> Double
 toDouble               = toDoubleWithRoundingMode RoundTowardNearest
