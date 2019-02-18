@@ -52,6 +52,18 @@ instance (Eq a, IntegralDomain a) => IntegralDomain (UniPoly a) where
                | otherwise = loop (q + q') (r - q' * g)
         where q' = unscaleP b (UniPoly (V.drop (degree' g) (coeff r)))
 
+-- $setup
+-- >>> import Control.Monad
+-- >>> import Test.QuickCheck
+-- >>> newtype IntPoly = IntPoly (UniPoly Integer) deriving Show
+-- >>> instance Arbitrary IntPoly where arbitrary = IntPoly . fromCoeffListAsc <$> (choose (1,10) >>= \n -> replicateM n arbitrary)
+-- >>> newtype RatPoly = RatPoly (UniPoly Rational) deriving Show
+-- >>> instance Arbitrary RatPoly where arbitrary = RatPoly . fromCoeffListAsc <$> (choose (1,10) >>= \n -> replicateM n arbitrary)
+
+-- | Compute GCD with subresultant PRS
+--
+-- prop> \(RatPoly f) (RatPoly g) -> primitivePart (gcdWithSubresultantPRS f g) == primitivePart (monicGcdP f g)
+-- prop> \(IntPoly f) (IntPoly g) -> primitivePart (gcdWithSubresultantPRS f g) == integralPrimitivePart (monicGcdP (mapCoeff fromInteger f) (mapCoeff fromInteger g) :: UniPoly Rational)
 gcdWithSubresultantPRS :: (Eq a, IntegralDomain a) => UniPoly a -> UniPoly a -> UniPoly a
 gcdWithSubresultantPRS f 0 = f
 gcdWithSubresultantPRS f g
